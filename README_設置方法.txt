@@ -1,0 +1,21 @@
+暗唱ループ（GitHub Pages / Google Keep共有対応版）
+
+【GitHub Pagesへの設置】
+1. ZIP内のファイル一式を、公開したいGitHub Pagesリポジトリの公開ルートにアップロードし、既存ファイルを置き換えてください。
+2. GitHub Pagesの反映を待ち、Chromeで公開URLを開いてください。
+3. AndroidでPWAとしてインストールしてください。
+
+【今回の変更】
+・GitHub Pagesのプロジェクトサイト（/リポジトリ名/）でも動くよう、ルート絶対パスを相対パスに変更しました。
+・manifest.jsonにshare_targetを追加し、Google Keepから共有されたタイトル・本文・URLを受け取ります。
+・長いメモをURLに載せずPOSTで受信し、Service WorkerがCache Storageに保存してアプリへ渡します。
+・共有データがある場合はサンプル文章で上書きせず、入力欄へ共有内容を表示します。
+
+【Google Keepからの共有】
+Google Keepでメモを開き、「送信」または「共有」から「暗唱ループ」を選択します。共有された文章が入力欄に入ったことを確認してから、「暗唱ループ」の通常の操作で練習を開始してください。
+
+【更新時の注意】
+manifest.json、index.html、sw.jsを含む全ファイルを更新してください。更新後、Chromeでページを開き直し、古いインストール版が残る場合はPWAを削除して再インストールしてください。Service Worker更新の反映に時間がかかることがあります。
+
+【注意】
+JavaScript構文とZIPの整合性を確認していますが、Android実機でのGoogle Keep共有テストは未実施です。端末やChromeのバージョンによって共有先の表示・動作が異なる場合があります。

@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="文章を1行ずつ隠して暗唱。言えなかった行を繰り返し練習できる暗唱ツールです。">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    <title>暗唱ループ - 見て隠して、思い出して、身につける</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        .mask-blur {
+            filter: blur(8px);
+            background-color: #334155;
+            color: transparent !important;
+            transition: all 0.2s ease;
+        }
+        .mask-black {
+            background-color: #1e293b;
+            color: transparent !important;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between bg-slate-900 text-slate-100 selection:bg-emerald-500 selection:text-white">
+
+    <!-- App Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2 cursor-pointer" onclick="showSection('input')">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-black">
+                    <img src="/icon-192.png" alt="" class="w-8 h-8 rounded-lg object-cover">
+                </div>
+                <div>
+                    <h1 class="font-black text-base sm:text-lg leading-tight tracking-tight text-white">
+                        暗唱ループ <span class="text-emerald-400 text-xs sm:text-sm font-semibold">見て・隠して・思い出す</span>
+                    </h1>
+                </div>
+            </div>
+            <div id="nav-actions" class="hidden flex items-center gap-2">
+                <button onclick="showSection('input')" class="text-xs px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700">
+                    <i class="fa-solid fa-pen-to-square me-1"></i> 編集
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-3xl w-full mx-auto px-4 py-6 flex-grow flex flex-col justify-center">
+
+        <!-- SECTION 1: TEXT INPUT MODE -->
+        <section id="sec-input" class="space-y-6">
+            <div class="text-center space-y-2">
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    アクティブリコール特化型記憶ツール
+                </span>
+                <h2 class="text-2xl sm:text-3xl font-black text-white">暗唱テキストを入力</h2>
+                <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
+                    覚えたい文章を入力してください。1行ずつ自動分割され、言えなかった行だけが言えるまでループ再出題されます。
+                </p>
+            </div>
+
+            <!-- Sample Selector Buttons -->
+            <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/60 space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        <i class="fa-solid fa-wand-magic-sparkles text-emerald-400 me-1"></i> サンプルの読み込み
+                    </label>
+                    <button onclick="clearText()" class="text-xs text-rose-400 hover:text-rose-300 transition">
+                        <i class="fa-solid fa-trash-can me-1"></i> クリア
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button onclick="loadSample(0)" class="p-2.5 rounded-xl bg-slate-700/50 hover:bg-slate-700 text-left text-xs font-medium border border-slate-600/40 transition">
+                        <div class="text-[10px] text-emerald-400 font-bold">古典</div>
+                        <div class="truncate text-slate-200">春はあけぼの</div>
+                    </button>
+                    <button onclick="loadSample(1)" class="p-2.5 rounded-xl bg-slate-700/50 hover:bg-slate-700 text-left text-xs font-medium border border-slate-600/40 transition">
+                        <div class="text-[10px] text-emerald-400 font-bold">落語</div>
+                        <div class="truncate text-slate-200">寿限無</div>
+                    </button>
+                    <button onclick="loadSample(2)" class="p-2.5 rounded-xl bg-slate-700/50 hover:bg-slate-700 text-left text-xs font-medium border border-slate-600/40 transition">
+                        <div class="text-[10px] text-emerald-400 font-bold">英語</div>
+                        <div class="truncate text-slate-200">Steve Jobs Speech</div>
+                    </button>
+                    <button onclick="loadSample(3)" class="p-2.5 rounded-xl bg-slate-700/50 hover:bg-slate-700 text-left text-xs font-medium border border-slate-600/40 transition">
+                        <div class="text-[10px] text-emerald-400 font-bold">ビジネス</div>
+                        <div class="truncate text-slate-200">定番お礼メール</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Text Area -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center text-xs text-slate-400">
+                    <span class="font-bold text-slate-300">テキスト本文（改行ごとに1行として扱われます）</span>
+                    <span id="line-count-badge">0 行</span>
+                </div>
+                <textarea
+                    id="input-text"
+                    rows="8"
+                    placeholder="ここに暗記したい文章を入力または貼り付けてください..."
+                    class="w-full p-4 rounded-2xl bg-slate-800/90 border border-slate-700 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 font-sans text-sm sm:text-base leading-relaxed custom-scrollbar transition"
+                    oninput="updateLineCount()"
+                ></textarea>
+            </div>
+
+            <!-- Start Action Buttons -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <button
+                    onclick="startPractice('loop')"
+                    className="py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-lg shadow-lg shadow-emerald-950/50 transition active:scale-[0.98] flex items-center justify-center gap-3"
+                >
+                    <i class="fa-solid fa-arrows-rotate text-xl"></i>
+                    暗唱スタート (ループ)
+                </button>
+                <button
+                    onclick="startPractice('sheet')"
+                    className="py-4 px-6 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-lg border border-slate-700 transition active:scale-[0.98] flex items-center justify-center gap-3"
+                >
+                    <i class="fa-solid fa-eye-slash text-xl text-rose-400"></i>
+                    デジタル赤シート一覧
+                </button>
+            </div>
+        </section>
+
+        <!-- SECTION 2: DIGITAL RED SHEET MODE -->
+        <section id="sec-sheet" class="hidden space-y-4">
+            <div class="flex items-center justify-between bg-slate-800/60 p-3 rounded-2xl border border-slate-700/60">
+                <div class="text-xs text-slate-300">
+                    <i class="fa-solid fa-hand-pointer text-emerald-400 me-1"></i> カードをタップして個別にマスク開閉
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="setAllSheetMasks(true)" class="px-3 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-medium text-slate-200 transition">
+                        全隠し
+                    </button>
+                    <button onclick="setAllSheetMasks(false)" class="px-3 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-medium text-slate-200 transition">
+                        全表示
+                    </button>
+                </div>
+            </div>
+
+            <div id="sheet-list" class="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
+                <!-- Dynamically generated sheet items -->
+            </div>
+
+            <div class="pt-4 flex justify-center">
+                <button onclick="startPractice('loop')" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white shadow-lg transition">
+                    <i class="fa-solid fa-play me-2"></i> この内容で暗唱モードへ進む
+                </button>
+            </div>
+        </section>
+
+        <!-- SECTION 3: INTERACTIVE RECALL LOOP MODE -->
+        <section id="sec-loop" class="hidden flex-grow flex flex-col justify-between py-2 space-y-6">
+            <!-- Header Status -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs font-bold">
+                    <span id="round-badge" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        ラウンド 1
+                    </span>
+                    <span id="queue-progress-text" class="text-slate-400 font-mono">
+                        1 / 5 行目
+                    </span>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div id="queue-progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-0 transition-all duration-300 rounded-full"></div>
+                </div>
+            </div>
+
+            <!-- Main Practice Flash Card -->
+            <div className="my-auto space-y-3">
+                <div
+                    id="recall-card"
+                    onclick="toggleRevealAnswer()"
+                    class="relative bg-slate-800/90 border-2 border-slate-700 hover:border-slate-600 rounded-3xl p-8 sm:p-12 text-center cursor-pointer shadow-2xl min-h-[220px] flex flex-col justify-center items-center transition active:scale-[0.99] group"
+                >
+                    <span id="line-number-tag" class="absolute top-4 left-5 text-xs font-mono font-bold text-slate-500">
+                        Line 1
+                    </span>
+
+                    <!-- Answer Text Container -->
+                    <div id="card-content-hidden" class="space-y-3">
+                        <div class="w-48 sm:w-64 h-8 bg-slate-700/60 rounded-xl animate-pulse mx-auto"></div>
+                        <p class="text-xs text-slate-400 group-hover:text-slate-300 transition">
+                            <i class="fa-solid fa-eye text-emerald-400 me-1"></i> タップまたは <kbd class="px-1.5 py-0.5 bg-slate-700 rounded text-[10px]">Space</kbd> で答えあわせ
+                        </p>
+                    </div>
+
+                    <div id="card-content-shown" class="hidden text-xl sm:text-2xl font-bold text-slate-100 leading-relaxed">
+                        <!-- Text inserted here -->
+                    </div>
+                </div>
+
+                <!-- Web Speech API Control -->
+                <div class="bg-slate-800/40 rounded-2xl p-3 border border-slate-700/40 flex items-center justify-between gap-3">
+                    <button
+                        id="mic-btn"
+                        onclick="toggleSpeechRecognition()"
+                        class="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition bg-slate-700 hover:bg-slate-650 text-slate-300"
+                    >
+                        <i class="fa-solid fa-microphone"></i>
+                        <span id="mic-btn-label">音声判定</span>
+                    </button>
+
+                    <div class="flex-grow text-right truncate">
+                        <span id="speech-transcript" class="text-xs text-slate-400 italic font-mono truncate inline-block max-w-[180px] sm:max-w-[280px]">
+                            マイクで暗唱を自動判定
+                        </span>
+                    </div>
+
+                    <span id="speech-score" class="hidden text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                        一致率 0%
+                    </span>
+                </div>
+            </div>
+
+            <!-- Self Evaluation Action Buttons -->
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-4">
+                    <button
+                        onclick="recordAnswer(false)"
+                        class="py-5 px-4 rounded-2xl bg-slate-800/80 hover:bg-rose-950/30 border border-rose-500/40 text-rose-300 font-black text-lg sm:text-xl shadow-lg transition active:scale-95 flex flex-col items-center justify-center gap-1 group"
+                    >
+                        <span class="flex items-center gap-2 text-rose-400 group-hover:scale-105 transition">
+                            <i class="fa-solid fa-xmark text-2xl"></i> 言えなかった
+                        </span>
+                        <span class="text-[10px] text-rose-400/60 font-mono font-normal">[2] または [←]</span>
+                    </button>
+
+                    <button
+                        onclick="recordAnswer(true)"
+                        class="py-5 px-4 rounded-2xl bg-slate-800/80 hover:bg-emerald-950/30 border border-emerald-500/40 text-emerald-300 font-black text-lg sm:text-xl shadow-lg shadow-emerald-950/20 transition active:scale-95 flex flex-col items-center justify-center gap-1 group"
+                    >
+                        <span class="flex items-center gap-2 text-emerald-400 group-hover:scale-105 transition">
+                            <i class="fa-solid fa-check text-2xl"></i> 言えた！
+                        </span>
+                        <span class="text-[10px] text-emerald-400/60 font-mono font-normal">[1] または [→]</span>
+                    </button>
+                </div>
+
+                <p class="text-center text-[11px] text-slate-500 font-mono">
+                    ショートカット: <kbd class="px-1 bg-slate-800 rounded">Space</kbd> 答え確認 / <kbd class="px-1 bg-slate-800 rounded">1</kbd> 言えた / <kbd class="px-1 bg-slate-800 rounded">2</kbd> 言えなかった
+                </p>
+            </div>
+        </section>
+
+        <!-- SECTION 4: COMPLETION RESULT MODE -->
+        <section id="sec-result" class="hidden text-center space-y-8 py-6">
+            <div class="space-y-3">
+                <div class="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-3xl shadow-lg shadow-emerald-500/10">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <h2 class="text-3xl sm:text-4xl font-black text-white">コンプリート！</h2>
+                <p class="text-slate-400 text-sm max-w-sm mx-auto">
+                    すべての行をマスターしました。脳の記憶回路が強固に結合されました！
+                </p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-6 shadow-2xl space-y-6">
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="p-3 bg-slate-900/60 rounded-2xl border border-slate-700/50">
+                        <div id="stat-rounds" class="text-2xl font-black text-emerald-400">1</div>
+                        <div class="text-[11px] text-slate-400 font-medium">総ラウンド</div>
+                    </div>
+                    <div class="p-3 bg-slate-900/60 rounded-2xl border border-slate-700/50">
+                        <div id="stat-accuracy" class="text-2xl font-black text-teal-400">100%</div>
+                        <div class="text-[11px] text-slate-400 font-medium">1発合格率</div>
+                    </div>
+                    <div class="p-3 bg-slate-900/60 rounded-2xl border border-slate-700/50">
+                        <div id="stat-time" class="text-2xl font-black text-slate-200">0s</div>
+                        <div class="text-[11px] text-slate-400 font-medium">所要時間</div>
+                    </div>
+                </div>
+
+                <!-- Review Items Analysis -->
+                <div id="review-list-container" class="text-left pt-2 border-t border-slate-700/50 hidden">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <i class="fa-solid fa-rotate-left text-amber-400 me-1"></i> 復習が必要だった行
+                    </h4>
+                    <div id="review-list" class="space-y-2 max-h-36 overflow-y-auto custom-scrollbar pr-1">
+                        <!-- Dynamic fail items -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Completion Action Buttons -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button onclick="startPractice('loop')" class="py-4 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> もう一度暗唱する
+                </button>
+                <button onclick="showSection('input')" class="py-4 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-pen-to-square"></i> テキストを変更する
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Application Logic -->
+    <script>
+        // Sample Texts Data
+        const SAMPLE_TEXTS = [
+            `春はあけぼの。ようよう白くなりゆく山ぎわ、少しあかりて、紫だちたる雲の細くたなびきたる。\n夏はよる。月のころはさらなり、闇もなお、ほたるの多く飛びちがいたる。\nまた、ただ一つ二つなど、ほのかにうち光りて行くもをかし。雨など降るもをかし。\n秋は夕暮れ。夕日のさして山のはいと近うなりたるに、鳥のねぐらへ行くとて、三つ四つ、二つ三つなど飛び急ぐさえあわれなり。\n冬はつとめて。雪の降りたるはいうべきにあらず、霜のいと白きも、またさらでもいと寒きに、火など急ぎおこして、炭持てわたるも、いとつきづきし。`,
+            `寿限無、寿限無\n五劫のすりきれ\n海砂利水魚の\n水行末 雲来末 風来末\n食う寝るところに住むところ\nやぶらこうじのぶらこうじ\nパイポパイポ パイポのシューリンガン\nシューリンガンのグーリンダイ\nグーリンダイのポンポコナーのポンポコピーの\n長久命の長助`,
+            `Your time is limited, so don't waste it living someone else's life.\nDon't be trapped by dogma — which is living with the results of other people's thinking.\nDon't let the noise of others' opinions drown out your own inner voice.\nAnd most important, have the courage to follow your heart and intuition.\nThey somehow already know what you truly want to become.\nEverything else is secondary.`,
+            `平素は大変お世話になっております。\n恐れ入りますが、以下の件についてご確認いただけますでしょうか。\nご多忙のところ誠に恐縮ですが、ご対応のほどよろしくお願い申し上げます。\nご不明な点がございましたら、お気軽にお問い合わせください。\n引き続き、何卒よろしくお願いいたします。`
+        ];
+
+        // Web Audio Synthesizer for feedback chimes
+        function playSound(type) {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const now = ctx.currentTime;
+
+                if (type === 'correct') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(587.33, now); // D5
+                    osc.frequency.setValueAtTime(880, now + 0.08); // A5
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'wrong') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.setValueAtTime(130, now + 0.1);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'complete') {
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.frequency.value = freq;
+                        gain.gain.setValueAtTime(0.1, now + idx * 0.09);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.4);
+                        osc.start(now + idx * 0.09);
+                        osc.stop(now + idx * 0.09 + 0.4);
+                    });
+                }
+            } catch (e) {
+                console.warn("Audio Context Error", e);
+            }
+        }
+
+        // Global App State
+        let state = {
+            mode: 'input', // 'input' | 'sheet' | 'loop' | 'result'
+            lines: [],
+            sheetMasks: {},
+            round: 1,
+            queue: [], // Indices of current round
+            queueIndex: 0,
+            failedQueue: [],
+            isRevealed: false,
+            startTime: null,
+            stats: {
+                totalAttempts: 0,
+                firstTrySuccesses: 0,
+                lineFailCounts: {}
+            },
+            isListening: false
+        };
+
+        let recognition = null;
+
+        // View Navigation
+        function showSection(targetMode) {
+            state.mode = targetMode;
+            document.getElementById('sec-input').classList.add('hidden');
+            document.getElementById('sec-sheet').classList.add('hidden');
+            document.getElementById('sec-loop').classList.add('hidden');
+            document.getElementById('sec-result').classList.add('hidden');
+
+            const navActions = document.getElementById('nav-actions');
+            if (targetMode === 'input') {
+                navActions.classList.add('hidden');
+            } else {
+                navActions.classList.remove('hidden');
+            }
+
+            document.getElementById(`sec-${targetMode}`).classList.remove('hidden');
+
+            if (targetMode === 'loop') {
+                renderLoopCard();
+            } else if (targetMode === 'sheet') {
+                renderSheetList();
+            }
+        }
+
+        function updateLineCount() {
+            const text = document.getElementById('input-text').value;
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            document.getElementById('line-count-badge').innerText = `${lines.length} 行`;
+        }
+
+        function loadSample(idx) {
+            document.getElementById('input-text').value = SAMPLE_TEXTS[idx];
+            updateLineCount();
+        }
+
+        function clearText() {
+            document.getElementById('input-text').value = '';
+            updateLineCount();
+        }
+
+        function startPractice(targetMode) {
+            const rawText = document.getElementById('input-text').value;
+            const cleanedLines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (cleanedLines.length === 0) {
+                alert('暗記するテキストを入力するか、サンプルを選択してください。');
+                return;
+            }
+
+            state.lines = cleanedLines;
+
+            if (targetMode === 'sheet') {
+                state.sheetMasks = {};
+                cleanedLines.forEach((_, idx) => { state.sheetMasks[idx] = true; });
+                showSection('sheet');
+            } else if (targetMode === 'loop') {
+                state.round = 1;
+                state.queue = cleanedLines.map((_, idx) => idx);
+                state.queueIndex = 0;
+                state.failedQueue = [];
+                state.isRevealed = false;
+                state.startTime = Date.now();
+                state.stats = {
+                    totalAttempts: 0,
+                    firstTrySuccesses: 0,
+                    lineFailCounts: {}
+                };
+                showSection('loop');
+            }
+        }
+
+        function renderSheetList() {
+            const container = document.getElementById('sheet-list');
+            container.innerHTML = '';
+
+            state.lines.forEach((line, idx) => {
+                const isMasked = !!state.sheetMasks[idx];
+                const item = document.createElement('div');
+                item.className = `p-4 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 ${
+                    isMasked 
+                        ? 'bg-slate-800/90 border-slate-700 hover:border-slate-600' 
+                        : 'bg-slate-800/40 border-slate-700/40'
+                }`;
+                item.onclick = () => {
+                    state.sheetMasks[idx] = !state.sheetMasks[idx];
+                    renderSheetList();
+                };
+
+                item.innerHTML = `
+                    <span class="text-xs font-mono font-bold text-slate-500 w-6">${idx + 1}</span>
+                    <div class="flex-grow font-medium text-sm sm:text-base leading-snug">
+                        ${isMasked 
+                            ? `<span class="mask-black px-2 py-0.5 inline-block w-full select-none">${line}</span>` 
+                            : `<span class="text-slate-100">${line}</span>`
+                        }
+                    </div>
+                    <i class="fa-solid ${isMasked ? 'fa-eye-slash text-slate-500' : 'fa-eye text-emerald-400'} text-sm"></i>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function setAllSheetMasks(masked) {
+            state.lines.forEach((_, idx) => { state.sheetMasks[idx] = masked; });
+            renderSheetList();
+        }
+
+        function renderLoopCard() {
+            const currentLineIdx = state.queue[state.queueIndex];
+            const currentText = state.lines[currentLineIdx];
+
+            // Update Progress & Badges
+            document.getElementById('round-badge').innerText = state.round === 1 ? '第1ラウンド' : `復習ラウンド ${state.round}`;
+            document.getElementById('queue-progress-text').innerText = `${state.queueIndex + 1} / ${state.queue.length} 行`;
+            
+            const pct = Math.round(((state.queueIndex) / state.queue.length) * 100);
+            document.getElementById('queue-progress-bar').style.width = `${pct}%`;
+
+            document.getElementById('line-number-tag').innerText = `Line ${currentLineIdx + 1}`;
+
+            const shownElem = document.getElementById('card-content-shown');
+            const hiddenElem = document.getElementById('card-content-hidden');
+
+            if (state.isRevealed) {
+                shownElem.innerText = currentText;
+                shownElem.classList.remove('hidden');
+                hiddenElem.classList.add('hidden');
+            } else {
+                shownElem.classList.add('hidden');
+                hiddenElem.classList.remove('hidden');
+            }
+
+            // Reset speech transcript display
+            document.getElementById('speech-transcript').innerText = 'マイクで暗唱を自動判定';
+            document.getElementById('speech-score').classList.add('hidden');
+        }
+
+        function toggleRevealAnswer() {
+            state.isRevealed = !state.isRevealed;
+            renderLoopCard();
+        }
+
+        function recordAnswer(isCorrect) {
+            const currentLineIdx = state.queue[state.queueIndex];
+            playSound(isCorrect ? 'correct' : 'wrong');
+
+            if (state.isListening && recognition) {
+                recognition.stop();
+                state.isListening = false;
+                updateMicUI();
+            }
+
+            // Stats Update
+            state.stats.totalAttempts++;
+            if (state.round === 1 && isCorrect) {
+                state.stats.firstTrySuccesses++;
+            }
+            if (!isCorrect) {
+                state.stats.lineFailCounts[currentLineIdx] = (state.stats.lineFailCounts[currentLineIdx] || 0) + 1;
+                state.failedQueue.push(currentLineIdx);
+            }
+
+            // Next Queue step
+            if (state.queueIndex + 1 < state.queue.length) {
+                state.queueIndex++;
+                state.isRevealed = false;
+                renderLoopCard();
+            } else {
+                // Round Finished
+                if (state.failedQueue.length === 0) {
+                    // All master!
+                    finishPractice();
+                } else {
+                    // Repeat failed items
+                    state.round++;
+                    state.queue = [...state.failedQueue];
+                    state.failedQueue = [];
+                    state.queueIndex = 0;
+                    state.isRevealed = false;
+                    renderLoopCard();
+                }
+            }
+        }
+
+        function normalizeString(str) {
+            return (str || "")
+                .toLowerCase()
+                .replace(/[、。！？\s,.\!?'"\-\t]/g, "")
+                .replace(/[ァ-ン]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0x60));
+        }
+
+        function calculateSimilarity(str1, str2) {
+            const norm1 = normalizeString(str1);
+            const norm2 = normalizeString(str2);
+            if (!norm1 || !norm2) return 0;
+            if (norm1 === norm2) return 1.0;
+
+            let matches = 0;
+            const arr2 = norm2.split('');
+            for (let char of norm1) {
+                const idx = arr2.indexOf(char);
+                if (idx !== -1) {
+                    matches++;
+                    arr2.splice(idx, 1);
+                }
+            }
+            return matches / Math.max(norm1.length, norm2.length);
+        }
+
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) return null;
+
+            const rec = new SpeechRecognition();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'ja-JP';
+
+            rec.onresult = (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                document.getElementById('speech-transcript').innerText = `「${transcript}」`;
+
+                const currentLineIdx = state.queue[state.queueIndex];
+                const targetText = state.lines[currentLineIdx];
+                const sim = calculateSimilarity(transcript, targetText);
+
+                const scoreElem = document.getElementById('speech-score');
+                scoreElem.innerText = `一致率 ${Math.round(sim * 100)}%`;
+                scoreElem.classList.remove('hidden');
+
+                // Auto pass if similarity >= 75%
+                if (sim >= 0.75) {
+                    state.isRevealed = true;
+                    renderLoopCard();
+                    setTimeout(() => {
+                        recordAnswer(true);
+                    }, 500);
+                }
+            };
+
+            rec.onerror = () => {
+                state.isListening = false;
+                updateMicUI();
+            };
+
+            rec.onend = () => {
+                state.isListening = false;
+                updateMicUI();
+            };
+
+            return rec;
+        }
+
+        function toggleSpeechRecognition() {
+            if (!recognition) {
+                recognition = initSpeechRecognition();
+            }
+            if (!recognition) {
+                alert('お使いのブラウザは音声認識に対応していません。Google Chrome等をご利用ください。');
+                return;
+            }
+
+            if (state.isListening) {
+                recognition.stop();
+                state.isListening = false;
+            } else {
+                try {
+                    recognition.start();
+                    state.isListening = true;
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            updateMicUI();
+        }
+
+        function updateMicUI() {
+            const btn = document.getElementById('mic-btn');
+            const label = document.getElementById('mic-btn-label');
+
+            if (state.isListening) {
+                btn.className = "px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse";
+                label.innerText = "認識中...";
+            } else {
+                btn.className = "px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition bg-slate-700 hover:bg-slate-650 text-slate-300";
+                label.innerText = "音声判定";
+            }
+        }
+
+        function finishPractice() {
+            playSound('complete');
+            
+            // Confetti animation
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
+
+            const elapsedSeconds = Math.round((Date.now() - state.startTime) / 1000);
+            const accuracy = Math.round((state.stats.firstTrySuccesses / state.lines.length) * 100) || 0;
+
+            document.getElementById('stat-rounds').innerText = state.round;
+            document.getElementById('stat-accuracy').innerText = `${accuracy}%`;
+            document.getElementById('stat-time').innerText = `${elapsedSeconds}s`;
+
+            // Fail history list
+            const reviewContainer = document.getElementById('review-list-container');
+            const reviewList = document.getElementById('review-list');
+            reviewList.innerHTML = '';
+
+            const failKeys = Object.keys(state.stats.lineFailCounts);
+            if (failKeys.length > 0) {
+                reviewContainer.classList.remove('hidden');
+                failKeys.forEach(idx => {
+                    const failCount = state.stats.lineFailCounts[idx];
+                    const item = document.createElement('div');
+                    item.className = "flex items-center justify-between text-xs bg-slate-900/50 p-2.5 rounded-xl border border-slate-800";
+                    item.innerHTML = `
+                        <span class="text-slate-300 font-medium truncate max-w-[200px]">
+                            Line ${parseInt(idx) + 1}: ${state.lines[idx]}
+                        </span>
+                        <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono font-bold">
+                            ${failCount}回ミス
+                        </span>
+                    `;
+                    reviewList.appendChild(item);
+                });
+            } else {
+                reviewContainer.classList.add('hidden');
+            }
+
+            showSection('result');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (['TEXTAREA', 'INPUT'].includes(document.activeElement?.tagName)) return;
+
+            if (state.mode === 'loop') {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    toggleRevealAnswer();
+                } else if (e.code === 'Digit1' || e.code === 'ArrowRight') {
+                    e.preventDefault();
+                    recordAnswer(true);
+                } else if (e.code === 'Digit2' || e.code === 'ArrowLeft') {
+                    e.preventDefault();
+                    recordAnswer(false);
+                }
+            }
+        });
+
+        // Initialize on Load: prefer text shared from Google Keep; otherwise load sample.
+        async function initializeFromShareOrSample() {
+            let imported = false;
+            try {
+                const shareDataUrl = new URL('./__shared_data__', document.baseURI).href;
+                const response = await fetch(shareDataUrl, { cache: 'no-store' });
+                if (response.ok) {
+                    const data = await response.json();
+                    const sharedText = [data.title, data.text, data.url].filter(Boolean).join('\n').trim();
+                    if (sharedText) {
+                        document.getElementById('input-text').value = sharedText;
+                        updateLineCount();
+                        imported = true;
+                    }
+                    if ('caches' in window) {
+                        const cache = await caches.open('ansho-loop-share-v1');
+                        await cache.delete(shareDataUrl);
+                    }
+                }
+            } catch (error) {
+                console.warn('共有データの読み込みに失敗しました:', error);
+            }
+            if (!imported) loadSample(0);
+        }
+        window.addEventListener('load', initializeFromShareOrSample);
+    </script>
+<script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => {
+                    console.warn('Service Worker registration failed:', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
