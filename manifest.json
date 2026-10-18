@@ -1,12 +1,13 @@
 {
   "id": "./",
-  "name": "隙間時間テキスト読み上げ・音声暗記プレイヤー",
-  "short_name": "音声暗記",
-  "description": "テキストを音声で読み上げ、隙間時間に暗記をサポートするプレイヤー",
+  "name": "暗唱ループ",
+  "short_name": "暗唱ループ",
+  "description": "文章を1行ずつ隠して暗唱し、言えなかった行を繰り返し練習するツール",
   "lang": "ja",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "icons": [
